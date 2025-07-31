@@ -1,0 +1,103 @@
+<!DOCTYPE html><html>
+<head>
+  <title>Traffic Symbol Detector</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #f7f7f7;
+    }
+    input, button {
+      margin: 10px;
+      padding: 10px;
+    }
+    #preview {
+      max-width: 90%;
+      margin-top: 20px;
+    }
+    .result {
+      font-weight: bold;
+      color: green;
+      margin-top: 20px;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>  <h2>🚦 Traffic Symbol Detector</h2>
+  <input type="file" id="imageInput" accept="image/*" />
+  <br>
+  <button onclick="analyzeImage()">Analyze</button>
+  <br>
+  <img id="preview" src="" alt="Image Preview" />
+  <div class="result" id="result"></div>
+  <div class="error" id="error"></div>  <script>
+    const token = "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";
+    const apiURL = "https://api-inference.huggingface.co/models/facebook/detr-resnet-50";
+
+    const labelDescriptions = {
+      "stop sign": "A red octagonal sign indicating that drivers must come to a complete stop.",
+      "traffic light": "A signaling device that uses red, yellow, and green lights to control traffic.",
+      "yield": "A sign that instructs drivers to slow down and give the right-of-way to traffic.",
+      "speed limit": "A sign that indicates the maximum speed vehicles may travel."
+      // Add more labels and meanings as needed
+    };
+
+    let imageData = null;
+
+    document.getElementById("imageInput").addEventListener("change", function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function () {
+        imageData = reader.result.split(',')[1];
+        document.getElementById("preview").src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    async function analyzeImage() {
+      if (!imageData) {
+        alert("Please select an image.");
+        return;
+      }
+
+      document.getElementById("result").innerHTML = "Analyzing...";
+      document.getElementById("error").innerHTML = "";
+
+      try {
+        const response = await fetch(apiURL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ inputs: imageData })
+        });
+
+        const result = await response.json();
+
+        if (result.error) {
+          document.getElementById("error").innerText = "❌ " + result.error;
+          document.getElementById("result").innerText = "";
+        } else if (Array.isArray(result)) {
+          const output = result.map(obj => {
+            const label = obj.label;
+            const score = (obj.score * 100).toFixed(1);
+            const description = labelDescriptions[label.toLowerCase()] || "No description available.";
+            return `${label} (${score}%)<br><i>${description}</i>`;
+          }).join("<hr>");
+
+          document.getElementById("result").innerHTML = "✅ Detected:<br>" + output;
+        } else {
+          document.getElementById("result").innerText = "❌ Could not detect a traffic symbol";
+        }
+      } catch (err) {
+        document.getElementById("error").innerText = "❌ Error: " + err.message;
+      }
+    }
+  </script></body>
+</html>
